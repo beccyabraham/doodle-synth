@@ -56,6 +56,7 @@ function mouseDragged() {
       state.lastMouseX = mouseX;
       state.lastMouseY = mouseY;
       win.pixelWaveform[mouseX - win.pos.x] = mouseY - win.mid;
+      win.updatePending = true;
     }
   });
 }
@@ -69,6 +70,12 @@ function mouseMoved() {
 function mouseReleased() {
   state.lastMouseX = undefined;
   state.lastMouseY = undefined;
+  windows.forEach((win) => {
+    if (win.updatePending) {
+      win.populateBuffer();
+      win.updatePending = false;
+    }
+  })
 }
 
 function mouseClicked() {
@@ -91,6 +98,7 @@ class Window {
     this.w = w;
     this.h = h;
     this.mid = this.pos.y + (this.h / 2);
+    this.updatePending = false;
 
     this.pixelWaveform = Array(w).fill(0);
 
@@ -110,6 +118,10 @@ class Window {
     this.slider.style('transform', 'rotate(270deg)');
     this.slider.style('height', '80px');
     this.slider.style('width', '80px');
+
+    this.slider.changed(() => {
+      this.handlePlay(this.playButton.selected);
+    });
   }
 
   handlePlay(play) {
@@ -119,8 +131,11 @@ class Window {
         this.w,
         this.w * this.slider.value()
       );
+      this.player.stop();
       this.player = new Tone.Player(this.buffer).toDestination();
       this.player.loop = true;
+      this.player.fadeOut = 0.01;
+      this.player.fadeIn = 0.05;
       this.populateBuffer();
       if (state.ready) {
         this.player.start();
@@ -138,7 +153,7 @@ class Window {
       let val = this.pixelWaveform[i]
       nowBuffering[i] = val / (this.h / 2);
     }
-
+    this.updatePending = false;
   }
 
   in(pt) {
